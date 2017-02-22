@@ -4,6 +4,8 @@
 # petergg
 # 2/15/2017
 
+import string, math
+
 # Stores the content of the papers
 papers = []
 
@@ -66,10 +68,41 @@ def readData(fileName):
 			# Set start to -1 to indicate we are not in the middle of a paper
 			start = -1
 
+# Returns a map from words to their tf-idf weight
+def tfidf(author):
+	wordFrequencies = {}
+	idf = {}
+
+	totalWords = 0
+
+	for paperNum in authorsToPaperNumbers[author]:
+		paper = papers[paperNum]
+		for line in paper:
+			# Remove punctuation from line
+			line = line.translate(None, string.punctuation)
+
+			for word in line.split(' '):
+				totalWords+=1
+
+				# Add 1 to word frequncy, paremeter of 0 is the default value,
+				# if that word isn't in the dictionary yet
+				wordFrequencies.get(word, 0) + 1
+
+				idf.get(word, set()).add(paperNum)
+
+	# Map frequencies to be relative to the total number of words
+	wordFrequencies = {k: v / totalWords for k, v in wordFrequencies.items()}
+
+	# Map idf to be log(N/d) where N is the number of papers this author wrote,
+	# and d is the number of papers in which the current word was present
+	idf = {k: math.log(len(v) / len(authorsToPaperNumbers[author])) for k, v in idf.items()}
+
+	return {k: v * idf[k] for k, v in wordFrequencies.items() if k in idf.items()}
+
 def main():
 	readData('papers.txt')
 
-	print authorsToPaperNumbers['HAMILTON']
+	print papers[0]
 	
 if __name__ == '__main__':
     main()
