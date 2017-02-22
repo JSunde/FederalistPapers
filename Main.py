@@ -27,6 +27,7 @@ for i in range(18, 21):
 	authorsToPaperNumbers['HAMILTON'].append(i)
 	authorsToPaperNumbers['MADISON'].append(i)
 
+
 def readData(fileName):
 	f = open(fileName, 'r')
 
@@ -102,7 +103,8 @@ def tfidf(author):
 def main():
 	readData('papers.txt')
 
-	print papers[0]
+
+	authorsToData = {'HAMILTON' : tfidf('HAMILTON'), 'MADISON' : tfidf('MADISON'), 'JAY': tfidf('JAY')}
 	
 if __name__ == '__main__':
     main()
