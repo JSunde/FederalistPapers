@@ -206,14 +206,16 @@ def plot(title, xLabel, yLabel, x, y, seriesLabels=None):
 	plt.title(title)
 	plt.xlabel(xLabel)
 	plt.ylabel(yLabel)
-
 	
 	if seriesLabels:
 		for i in range(len(seriesLabels)):
 			plt.plot(x, y[i], label=seriesLabels[i])
 
 		plt.legend(borderaxespad=1, fontsize=12)
+		plt.ylim(0, 12)
 	else:
+		plt.ylim(0, 50)
+
 		plt.plot(x, y)
 
 	plt.savefig('%s.png' % title, format='png')
@@ -223,9 +225,9 @@ def main():
 	readData('papers.txt')
 
 	# Remove
-	# for i in range(18, 21):
-	# 	authorsToPaperNumbers['HAMILTON'].remove(i)
-	# 	authorsToPaperNumbers['MADISON'].remove(i)
+	for i in range(18, 21):
+		authorsToPaperNumbers['HAMILTON'].remove(i)
+		authorsToPaperNumbers['MADISON'].remove(i)
 
 	topNWords = topWords(50)
 	papersToWordsToFrequencies = tf()
@@ -238,7 +240,7 @@ def main():
 			authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)
 			error.append(kNN(authorsToSamples, papersToWordsToFrequencies, False))
 		
-		plot('Training Error for Number of Words', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
+		plot('Training Error for Number of Words (No Joint)', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
 	elif sys.argv[1] == '-d':
 		predictions = []
 		for i in Ns:
@@ -247,7 +249,7 @@ def main():
 
 		predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
 		print predictions
-		plot('Predictions for Disputed Papers', 'Number of Words in Sample', 'Number of Papers', Ns, predictions, ['Hamilton', 'Madison', 'Jay'])
+		plot('Predictions for Disputed Papers (No Joint)', 'Number of Words in Sample', 'Number of Papers', Ns, predictions, ['Hamilton', 'Madison', 'Jay'])
 	
 if __name__ == '__main__':
     main()
