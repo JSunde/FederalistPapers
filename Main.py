@@ -6,7 +6,9 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import string, math, operator, sys
+import string, math, operator, sys, numpy
+
+colors = ['pink', 'lightblue', 'thistle']
 
 # Stores the content of the papers
 papers = ['']
@@ -200,17 +202,26 @@ def computeDist(d1, d2):
 
 	return math.sqrt(dist)
 
-def plot(title, xLabel, yLabel, x, y, seriesLabels=None):
-	plt.figure()
+def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=None):
+	fig = plt.figure()
 
 	plt.title(title)
 	plt.xlabel(xLabel)
 	plt.ylabel(yLabel)
 	
-	if seriesLabels:
+
+	if bar:
+		width = 0.3	
+
+		for i in range(len(seriesLabels)):
+			plt.bar(x + i * width, y[i], width, label=seriesLabels[i], color=colors[i])
+
+		plt.xticks(x + width / 2, tickLabels, rotation=45)
+		plt.legend(borderaxespad=1, fontsize=12)
+	elif seriesLabels:
 		for i in range(len(seriesLabels)):
 			plt.plot(x, y[i], label=seriesLabels[i])
-
+	
 		plt.legend(borderaxespad=1, fontsize=12)
 		plt.ylim(0, 12)
 	else:
@@ -233,7 +244,17 @@ def main():
 	papersToWordsToFrequencies = tf()
 
 	Ns = range(1, 30)
-	if sys.argv[1] == '-t':
+	seriesLabels = ['Hamilton', 'Madison', 'Jay']
+	if sys.argv[1] == '-w':
+		authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, 15)
+		tickLabels = authorsToSamples['HAMILTON'].keys()
+		data = []
+		data.append([v for k, v in authorsToSamples['HAMILTON'].items()])
+		data.append([v for k, v in authorsToSamples['MADISON'].items()])
+		data.append([v for k, v in authorsToSamples['JAY'].items()])
+
+		plot('Words With the Most Varied Usage Across Authors', 'Words', 'Frequency', numpy.arange(15), data, seriesLabels, True, tickLabels)
+	elif sys.argv[1] == '-t':
 		
 		error = []
 		for i in Ns:
@@ -249,7 +270,7 @@ def main():
 
 		predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
 		print predictions
-		plot('Predictions for Disputed Papers (No Joint)', 'Number of Words in Sample', 'Number of Papers', Ns, predictions, ['Hamilton', 'Madison', 'Jay'])
+		plot('Predictions for Disputed Papers (No Joint)', 'Number of Words in Sample', 'Number of Papers', Ns, predictions, seriesLabels)
 	
 if __name__ == '__main__':
     main()
