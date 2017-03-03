@@ -235,7 +235,7 @@ def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=N
 def main():
 	readData('papers.txt')
 
-	# Remove
+	# Remove joint papers from both Hamilton and Madison paper lists
 	for i in range(18, 21):
 		authorsToPaperNumbers['HAMILTON'].remove(i)
 		authorsToPaperNumbers['MADISON'].remove(i)
@@ -245,7 +245,9 @@ def main():
 
 	Ns = range(1, 30)
 	seriesLabels = ['Hamilton', 'Madison', 'Jay']
-	if sys.argv[1] == '-w':
+
+	# Output top words
+	if '-w' in sys.argv:
 		authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, 15)
 		tickLabels = authorsToSamples['HAMILTON'].keys()
 		data = []
@@ -254,23 +256,32 @@ def main():
 		data.append([v for k, v in authorsToSamples['JAY'].items()])
 
 		plot('Words With the Most Varied Usage Across Authors', 'Words', 'Frequency', numpy.arange(15), data, seriesLabels, True, tickLabels)
-	elif sys.argv[1] == '-t':
-		
-		error = []
-		for i in Ns:
-			authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)
-			error.append(kNN(authorsToSamples, papersToWordsToFrequencies, False))
-		
-		plot('Training Error for Number of Words (No Joint)', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
-	elif sys.argv[1] == '-d':
-		predictions = []
-		for i in Ns:
-			authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)
-			predictions.append(kNN(authorsToSamples, papersToWordsToFrequencies, True))
 
-		predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
-		print predictions
-		plot('Predictions for Disputed Papers (No Joint)', 'Number of Words in Sample', 'Number of Papers', Ns, predictions, seriesLabels)
+	# Output training error
+	elif '-t' in sys.argv or '--train' in sys.argv:
+		
+		# For KNN
+		if 'KNN' in sys.argv:
+			error = []
+			for i in Ns:
+				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)
+				error.append(kNN(authorsToSamples, papersToWordsToFrequencies, False))
+			
+			plot('Training Error for Number of Words (No Joint)', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
+
+	# Run classification
+	elif '-r' in sys.argv or '--run' in sys.argv:
+
+		# Using KNN
+		if 'KNN' in sys.argv:
+			predictions = []
+			for i in Ns:
+				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)
+				predictions.append(kNN(authorsToSamples, papersToWordsToFrequencies, True))
+
+			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
+			print predictions
+			plot('Predictions for Disputed Papers (No Joint)', 'Number of Words in Sample', 'Number of Papers', Ns, predictions, seriesLabels)			
 	
 if __name__ == '__main__':
     main()
