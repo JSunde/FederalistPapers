@@ -76,6 +76,7 @@ def readData(fileName):
 
 	authorsToPaperNumbers = {k: sorted(v) for k, v in authorsToPaperNumbers.items()}
 
+
 # Returns a list of tuples containing the top n words and their relative frequency
 def topWords(n):
 	wordFrequencies = {}
@@ -101,6 +102,7 @@ def topWords(n):
 	wordFrequencies = [x[0] for x in wordFrequencies]
 	return wordFrequencies
 
+
 # Returns a map from papers to top words to their frequences
 def tf():
 	papersToWordsToFrequencies = {}
@@ -121,6 +123,7 @@ def tf():
 
 		papersToWordsToFrequencies[paperNum] = {k: 1.0 * v / totalWords for k, v in wordsToFrequencies.items()}
 	return papersToWordsToFrequencies
+
 
 # Returns a map from authors to words to frequencies for the top N words that have the greatest disparity of usage between authors
 def sampleForTopN(words, papersToWordsToFrequencies, n):
@@ -152,8 +155,9 @@ def sampleForTopN(words, papersToWordsToFrequencies, n):
 
 	return {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords} for author, wordsToFreqs in authorsToWordsToFrequencies.items()}
 
+
 # Return the error on the training or test dataset based on the isTest flag
-def kNN(authorsToSamples, papersToWordsToFrequencies, isTest):
+def kMeans(authorsToSamples, papersToWordsToFrequencies, isTest):
 	paperNums = range(1, len(papers))
 	if isTest:
 		paperNums = authorsToPaperNumbers['DISPUTED']
@@ -163,7 +167,7 @@ def kNN(authorsToSamples, papersToWordsToFrequencies, isTest):
 
 	error = 0.0
 	for paperNum in paperNums:
-		predictedAuthor = predict(authorsToSamples, papersToWordsToFrequencies[paperNum])
+		predictedAuthor = kMeansPredict(authorsToSamples, papersToWordsToFrequencies[paperNum])
 
 		if isTest:
 			if predictedAuthor == 'HAMILTON':
@@ -180,18 +184,58 @@ def kNN(authorsToSamples, papersToWordsToFrequencies, isTest):
 	else:
 		return error * 100 / len(paperNums)
 
-def predict(authorsToSamples, paperWordsToFreqs):
-	hamiltonDist = computeDist(authorsToSamples['HAMILTON'], paperWordsToFreqs)
-	madisonDist = computeDist(authorsToSamples['MADISON'], paperWordsToFreqs)
-	jayDist = computeDist(authorsToSamples['JAY'], paperWordsToFreqs)
-	minDist = min(hamiltonDist, madisonDist, jayDist)
 
-	if hamiltonDist == minDist:
+def kMeansPredict(authorsToSamples, paperWordsToFreqs):
+	hDist = computeDist(authorsToSamples['HAMILTON'], paperWordsToFreqs)
+	mDist = computeDist(authorsToSamples['MADISON'], paperWordsToFreqs)
+	jDist = computeDist(authorsToSamples['JAY'], paperWordsToFreqs)
+
+	return predict(hDist, mDist, jDist)
+	
+
+# Simply assign each disputed paper to the author of the closest paper in the non disputed set
+def knn(papersToWordsToFrequencies):
+	# TODO: implement
+	paperNums = authorsToPaperNumbers['DISPUTED']
+
+	hamilton = 0
+	madison = 0
+	jay = 0
+
+	for paperNum in paperNums:
+		predictedAuthor = knnPredict(papersToWordsToFrequencies, paperNum)
+
+		if predictedAuthor == 'HAMILTON':
+			hamilton += 1
+		elif predictedAuthor == 'MADISON':
+			madison += 1
+		else:
+			jay += 1
+
+	return (hamilton, madison, jay)
+
+
+def knnPredict(papersToWordsToFrequencies, num):
+	# TODO: implement
+	paper = papersToWordsToFrequencies[num]
+	hDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['HAMILTON']])
+	mDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['MADISON']])
+	jDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['JAY']])
+
+	return predict(hDist, mDist, jDist)
+
+
+# Return the name of the author with the smallest dist
+def predict(hDist, mDist, jDist):
+	minDist = min(hDist, mDist, jDist)
+
+	if hDist == minDist:
 		return 'HAMILTON'
-	elif madisonDist == minDist:
+	elif mDist == minDist:
 		return 'MADISON'
 	else:
 		return 'JAY'
+
 
 # Accepts two dicts, d1 and d2, that map from words to frequencies, and returns the "distance" between them
 # d1 should be the sample dict
@@ -201,6 +245,7 @@ def computeDist(d1, d2):
 		dist += (d1[word] - d2.get(word, 0)) ** 2
 
 	return math.sqrt(dist)
+
 
 def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=None):
 	fig = plt.figure()
@@ -232,6 +277,7 @@ def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=N
 	plt.savefig('%s.png' % title, format='png')
 	plt.show()
 
+
 def main():
 	readData('papers.txt')
 
@@ -260,28 +306,39 @@ def main():
 	# Output training error
 	elif '-t' in sys.argv or '--train' in sys.argv:
 		
-		# For KNN
-		if 'KNN' in sys.argv:
+		# For KMeans
+		if 'KMeans' in sys.argv:
 			error = []
 			for i in Ns:
 				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)
-				error.append(kNN(authorsToSamples, papersToWordsToFrequencies, False))
+				error.append(kMeans(authorsToSamples, papersToWordsToFrequencies, False))
 			
 			plot('Training Error for Number of Words (No Joint)', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
 
 	# Run classification
 	elif '-r' in sys.argv or '--run' in sys.argv:
 
-		# Using KNN
-		if 'KNN' in sys.argv:
+		# Using KMeans
+		if 'KMeans' in sys.argv:
 			predictions = []
 			for i in Ns:
 				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)
-				predictions.append(kNN(authorsToSamples, papersToWordsToFrequencies, True))
+				predictions.append(kMeans(authorsToSamples, papersToWordsToFrequencies, True))
 
 			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
 			print predictions
-			plot('Predictions for Disputed Papers (No Joint)', 'Number of Words in Sample', 'Number of Papers', Ns, predictions, seriesLabels)			
+			plot('Predictions for Disputed Papers (No Joint)', 'Number of Words in Sample', 'Number of Papers', Ns, predictions, seriesLabels)
+
+		# Using KNN
+		elif 'KNN' in sys.argv:
+			predictions = []
+
+			predictions = knn(papersToWordsToFrequencies)
+
+			# TODO: Maybe Plot? right now there's only one output and it's that
+			# Madison wrote all the disputed papers
+
 	
+
 if __name__ == '__main__':
     main()
