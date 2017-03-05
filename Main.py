@@ -104,10 +104,11 @@ def topWords(n):
 
 
 # Returns a map from papers to top words to their frequences
-def tf():
+# Accepts a list of paper numbers, for which to perform the 
+def tf(paperNums):
 	papersToWordsToFrequencies = {}
 
-	for paperNum in range(1, len(papers)):
+	for paperNum in paperNums:
 		paper = papers[paperNum]
 		totalWords = 0
 		wordsToFrequencies = {}
@@ -194,7 +195,7 @@ def kMeansPredict(authorsToSamples, paperWordsToFreqs):
 	
 
 # Simply assign each disputed paper to the author of the closest paper in the non disputed set
-def knn(papersToWordsToFrequencies):
+def KNN(papersToWordsToFrequencies):
 	# TODO: implement
 	paperNums = authorsToPaperNumbers['DISPUTED']
 
@@ -203,7 +204,7 @@ def knn(papersToWordsToFrequencies):
 	jay = 0
 
 	for paperNum in paperNums:
-		predictedAuthor = knnPredict(papersToWordsToFrequencies, paperNum)
+		predictedAuthor = KNNPredict(papersToWordsToFrequencies, paperNum)
 
 		if predictedAuthor == 'HAMILTON':
 			hamilton += 1
@@ -215,7 +216,7 @@ def knn(papersToWordsToFrequencies):
 	return (hamilton, madison, jay)
 
 
-def knnPredict(papersToWordsToFrequencies, num):
+def KNNPredict(papersToWordsToFrequencies, num):
 	# TODO: implement
 	paper = papersToWordsToFrequencies[num]
 	hDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['HAMILTON']])
@@ -223,6 +224,51 @@ def knnPredict(papersToWordsToFrequencies, num):
 	jDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['JAY']])
 
 	return predict(hDist, mDist, jDist)
+
+
+def NB():
+	totalPapers = 1 - len(papers)
+	priorH = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
+	priorM = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
+	priorJ = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
+
+	hWordFreqs = tf(authorsToPaperNumbers['HAMILTON'])
+	mWordFreqs = tf(authorsToPaperNumbers['MADISON'])
+	jWordFreqs = tf(authorsToPaperNumbers['JAY'])
+
+	hMin = min(hWordFreqs, key=hWordFreqs.get) / 1.1
+	mMin = min(mWordFreqs, key=mWordFreqs.get) / 1.1
+	jMin = min(jWordFreqs, key=jWordFreqs.get) / 1.1
+
+	# TODO: run through disputed papers and use naive Bayes decision rule to decide author
+	disputedPaperNums = authorsToPaperNumbers['DISPUTED']
+
+	hamilton = 0
+	madison = 0
+	jay = 0
+
+	for paperNum in disputedPaperNums:
+		paper = papers[paperNum]
+		probs = [0, 0, 0]
+
+		for line in paper:
+
+			for word in line.split(' '):
+				word = word.lower()
+
+				probs[0] *= hWordFreqs.get(word, hMin)
+				probs[1] *= mWordFreqs.get(word, mMin)
+				probs[2] *= jWordFreqs.get(word, jMin)
+
+		indexOfMax = probs.index(max(probs))
+		if indexOfMax == 0:
+			hamilton += 1
+		elif indexOfMax == 1:
+			madison += 1
+		else:
+			jay += 1
+
+	return (hamilton, madison, jay)
 
 
 # Return the name of the author with the smallest dist
@@ -287,7 +333,7 @@ def main():
 		authorsToPaperNumbers['MADISON'].remove(i)
 
 	topNWords = topWords(50)
-	papersToWordsToFrequencies = tf()
+	papersToWordsToFrequencies = tf(range(1, len(papers)))
 
 	Ns = range(1, 30)
 	seriesLabels = ['Hamilton', 'Madison', 'Jay']
@@ -333,11 +379,16 @@ def main():
 		elif 'KNN' in sys.argv:
 			predictions = []
 
-			predictions = knn(papersToWordsToFrequencies)
-
+			predictions = KNN(papersToWordsToFrequencies)
+			print predictions
 			# TODO: Maybe Plot? right now there's only one output and it's that
 			# Madison wrote all the disputed papers
 
+		# Using Navie Bayes Net
+		elif 'NB' in sys.argv:
+
+			print 'NB'
+			print NB()
 	
 
 if __name__ == '__main__':
