@@ -117,11 +117,10 @@ def tf(paperNums):
 			for word in line.split(' '):
 				word = word.lower()
 
-				totalWords+=1
-
-				
-				wordsToFrequencies[word] = wordsToFrequencies.get(word, 0) + 1
-
+				if word != '':
+					totalWords+=1
+					
+					wordsToFrequencies[word] = wordsToFrequencies.get(word, 0) + 1
 		papersToWordsToFrequencies[paperNum] = {k: 1.0 * v / totalWords for k, v in wordsToFrequencies.items()}
 	return papersToWordsToFrequencies
 
@@ -226,19 +225,32 @@ def KNNPredict(papersToWordsToFrequencies, num):
 	return predict(hDist, mDist, jDist)
 
 
+def flattenDictOfDicts(outerDct):
+	result = {}
+	
+	for paperNum, innerDct in outerDct.items():
+
+		for word, freq in innerDct.items():
+			result[word] = result.get(word, 0) + freq
+
+	result = {k : v / len(outerDct) for k, v in result.items()}
+
+	return result
+
+
 def NB():
 	totalPapers = 1 - len(papers)
 	priorH = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
 	priorM = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
 	priorJ = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
 
-	hWordFreqs = tf(authorsToPaperNumbers['HAMILTON'])
-	mWordFreqs = tf(authorsToPaperNumbers['MADISON'])
-	jWordFreqs = tf(authorsToPaperNumbers['JAY'])
+	hWordFreqs = flattenDictOfDicts(tf(authorsToPaperNumbers['HAMILTON']))
+	mWordFreqs = flattenDictOfDicts(tf(authorsToPaperNumbers['MADISON']))
+	jWordFreqs = flattenDictOfDicts(tf(authorsToPaperNumbers['JAY']))
 
-	hMin = min(hWordFreqs, key=hWordFreqs.get) / 1.1
-	mMin = min(mWordFreqs, key=mWordFreqs.get) / 1.1
-	jMin = min(jWordFreqs, key=jWordFreqs.get) / 1.1
+	hMin = min(hWordFreqs.itervalues()) / 1.25
+	mMin = min(hWordFreqs.itervalues()) / 1.25
+	jMin = min(hWordFreqs.itervalues()) / 1.25
 
 	# TODO: run through disputed papers and use naive Bayes decision rule to decide author
 	disputedPaperNums = authorsToPaperNumbers['DISPUTED']
@@ -256,11 +268,13 @@ def NB():
 			for word in line.split(' '):
 				word = word.lower()
 
-				probs[0] *= hWordFreqs.get(word, hMin)
-				probs[1] *= mWordFreqs.get(word, mMin)
-				probs[2] *= jWordFreqs.get(word, jMin)
+				probs[0] += math.log(hWordFreqs.get(word, hMin))
+				probs[1] += math.log(mWordFreqs.get(word, mMin))
+				probs[2] += math.log(jWordFreqs.get(word, jMin))
 
 		indexOfMax = probs.index(max(probs))
+
+		print probs
 		if indexOfMax == 0:
 			hamilton += 1
 		elif indexOfMax == 1:
