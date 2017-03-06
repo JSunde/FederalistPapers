@@ -31,6 +31,7 @@ for i in range(18, 21):
 	authorsToPaperNumbers['HAMILTON'].append(i)
 	authorsToPaperNumbers['MADISON'].append(i)
 
+jayPresent = False
 
 def readData(fileName):
 	global authorsToPaperNumbers
@@ -138,7 +139,9 @@ def sampleForTopN(words, papersToWordsToFrequencies, n):
 
 			for author in authors:
 				if paperNum in authorsToPaperNumbers[author]:
-					authorsToWordsToFrequencies[author][word] = authorsToWordsToFrequencies[author].get(word, 0) + wordFreq
+					if jayPresent or (not jayPresent and author != 'JAY'):
+						authorsToWordsToFrequencies[author][word] = authorsToWordsToFrequencies[author].get(word, 0) + wordFreq
+							
 
 	authorsToWordsToFrequencies = {k1: {k2: v2 / len(authorsToPaperNumbers[k1]) for k2, v2 in v1.items()} for k1, v1 in authorsToWordsToFrequencies.items()}
 	avgWordsToFrequencies = {k: v / (len(papers) - 1) for k, v in avgWordsToFrequencies.items()}
@@ -147,9 +150,10 @@ def sampleForTopN(words, papersToWordsToFrequencies, n):
 	for word in words:
 		wordsToDistanceFromAvg[word] = 0
 		for author in authors:
-			avg = avgWordsToFrequencies[word]
-			curr = authorsToWordsToFrequencies[author][word]
-			wordsToDistanceFromAvg[word] += math.fabs(avg - curr)
+			if jayPresent or (not jayPresent and author != 'JAY'):
+				avg = avgWordsToFrequencies[word]
+				curr = authorsToWordsToFrequencies[author][word]
+				wordsToDistanceFromAvg[word] += math.fabs(avg - curr)
 
 	minVal = sorted(wordsToDistanceFromAvg.items(), key=operator.itemgetter(1), reverse=True)[n][1]
 	bestWords = [k for k, v in wordsToDistanceFromAvg.items() if v > minVal]
@@ -189,9 +193,14 @@ def kMeans(authorsToSamples, papersToWordsToFrequencies, isTest):
 def kMeansPredict(authorsToSamples, paperWordsToFreqs):
 	hDist = computeDist(authorsToSamples['HAMILTON'], paperWordsToFreqs)
 	mDist = computeDist(authorsToSamples['MADISON'], paperWordsToFreqs)
-	jDist = computeDist(authorsToSamples['JAY'], paperWordsToFreqs)
+	
+	if jayPresent:
+		jDist = computeDist(authorsToSamples['JAY'], paperWordsToFreqs)
+		return predict(hDist, mDist, jDist)
 
-	return predict(hDist, mDist, jDist)
+	return predict(hDist, mDist, sys.maxint)
+
+	
 	
 
 # Simply assign each disputed paper to the author of the closest paper in the non disputed set
@@ -327,27 +336,35 @@ def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=N
 def main():
 	readData('papers.txt')
 
+	n = 50
+	if '-n' in sys.argv:
+		n = int(sys.argv[sys.argv.index('-n') + 1])
+
+	if '-j' in sys.argv:
+		jayPresent = True
+
 	# Remove joint papers from both Hamilton and Madison paper lists
 	for i in range(18, 21):
 		authorsToPaperNumbers['HAMILTON'].remove(i)
 		authorsToPaperNumbers['MADISON'].remove(i)
 
-	topNWords = topWords(50)
+	topNWords = topWords(n)
 	papersToWordsToFrequencies = tf(range(1, len(papers)))
 
 	Ns = range(1, 30)
 	seriesLabels = ['Hamilton', 'Madison', 'Jay']
 
+
 	# Output top words
 	if '-w' in sys.argv:
-		authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, 15)
+		authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, n)
 		tickLabels = authorsToSamples['HAMILTON'].keys()
 		data = []
 		data.append([v for k, v in authorsToSamples['HAMILTON'].items()])
 		data.append([v for k, v in authorsToSamples['MADISON'].items()])
-		data.append([v for k, v in authorsToSamples['JAY'].items()])
+		#data.append([v for k, v in authorsToSamples['JAY'].items()])
 
-		plot('Words With the Most Varied Usage Across Authors', 'Words', 'Frequency', numpy.arange(15), data, seriesLabels, True, tickLabels)
+		plot('Words With the Most Varied Usage Across Authors', 'Words', 'Frequency', numpy.arange(n), data, seriesLabels[:-1], True, tickLabels)
 
 	# Output training error
 	elif '-t' in sys.argv or '--train' in sys.argv:
@@ -368,6 +385,7 @@ def main():
 		if 'KMeans' in sys.argv:
 			predictions = []
 			for i in Ns:
+
 				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)
 				predictions.append(kMeans(authorsToSamples, papersToWordsToFrequencies, True))
 
