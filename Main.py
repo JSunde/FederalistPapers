@@ -140,7 +140,7 @@ def sampleForTopN(words, papersToWordsToFrequencies, n):
 				if paperNum in authorsToPaperNumbers[author]:
 					if jayPresent or (not jayPresent and author != 'JAY'):
 						authorsToWordsToFrequencies[author][word] = authorsToWordsToFrequencies[author].get(word, 0) + wordFreq
-							
+
 
 	authorsToWordsToFrequencies = {k1: {k2: v2 / len(authorsToPaperNumbers[k1]) for k2, v2 in v1.items()} for k1, v1 in authorsToWordsToFrequencies.items()}
 	avgWordsToFrequencies = {k: v / (len(papers) - 1) for k, v in avgWordsToFrequencies.items()}
@@ -157,7 +157,15 @@ def sampleForTopN(words, papersToWordsToFrequencies, n):
 	minVal = sorted(wordsToDistanceFromAvg.items(), key=operator.itemgetter(1), reverse=True)[n][1]
 	bestWords = [k for k, v in wordsToDistanceFromAvg.items() if v > minVal]
 
-	return ({author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords} for author, wordsToFreqs in authorsToWordsToFrequencies.items()}, bestWords)
+	result = {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords} for author, wordsToFreqs in authorsToWordsToFrequencies.items()}
+
+	sortedResult = {}
+	for author in result.keys():
+		wordsToFreqs = result[author]
+		wordsToFreqs = {word: (freq, wordsToDistanceFromAvg[word]) for word, freq in wordsToFreqs.items()}
+		sortedResult[author] = sorted(wordsToFreqs.items(), key=lambda x: x[1][1], reverse=True)
+
+	return (result, bestWords, sortedResult)
 
 
 # Return the error on the training or test dataset based on the isTest flag
@@ -207,7 +215,6 @@ def kMeansPredict(authorsToSamples, paperWordsToFreqs):
 
 # Simply assign each disputed paper to the author of the closest paper in the non disputed set
 def KNN(papersToWordsToFrequencies):
-	# TODO: implement
 	paperNums = authorsToPaperNumbers['DISPUTED']
 
 	hamilton = 0
@@ -339,7 +346,7 @@ def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=N
 			plt.plot(x, y[i], label=seriesLabels[i])
 	
 		plt.legend(borderaxespad=1, fontsize=12)
-		plt.ylim(0, 12)
+		plt.ylim(0, 12.5)
 	else:
 		plt.ylim(0, 50)
 
@@ -376,30 +383,31 @@ def main():
 
 	# Output top words
 	if '-w' in sys.argv:
-		authorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, n)[0]
-		tickLabels = authorsToSamples['HAMILTON'].keys()
+		authorsToSamples, bestWords, sortedAuthorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, n)
+
+		print bestWords
+		tickLabels = [k for k, v in sortedAuthorsToSamples['HAMILTON']]
+
 		data = []
-		data.append([v for k, v in authorsToSamples['HAMILTON'].items()])
-		data.append([v for k, v in authorsToSamples['MADISON'].items()])
+		print sortedAuthorsToSamples['HAMILTON']
+		data.append([v[0] for k, v in sortedAuthorsToSamples['HAMILTON']])
+		data.append([v[0] for k, v in sortedAuthorsToSamples['MADISON']])
 
-		if not jayPresent:
-			data.append([v for k, v in authorsToSamples['JAY'].items()])
+		if jayPresent:
+			data.append([v[0] for k, v in sortedAuthorsToSamples['JAY']])
 
-			plot('Words With the Most Varied Usage Across Authors', 'Words', 'Frequency', numpy.arange(n), data, seriesLabels[:-1], True, tickLabels)
-		else:
 			plot('Words With the Most Varied Usage Across Authors', 'Words', 'Frequency', numpy.arange(n), data, seriesLabels, True, tickLabels)
+		else:
+			plot('Words With the Most Varied Usage Across Authors', 'Words', 'Frequency', numpy.arange(n), data, seriesLabels[:-1], True, tickLabels)
 
 	# Output training error
-	elif '-t' in sys.argv or '--train' in sys.argv:
+	elif '-t' in sys.argv or '--train' in sys.argv:	
+		error = []
+		for i in Ns:
+			authorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)[0]
+			error.append(kMeans(authorsToSamples, papersToWordsToFrequencies, False))
 		
-		# For KMeans
-		if 'kmeans' in sys.argv:
-			error = []
-			for i in Ns:
-				authorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)[0]
-				error.append(kMeans(authorsToSamples, papersToWordsToFrequencies, False))
-			
-			plot('Training Error for Number of Words (No Joint)', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
+		plot('Training Error for Number of Words (No Joint)', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
 
 	# Run classification
 	elif '-r' in sys.argv or '--run' in sys.argv:
@@ -407,6 +415,7 @@ def main():
 		alg = ''
 
 		# Using KMeans
+		predictions = []
 		if 'kmeans' in sys.argv:
 			alg = 'Kmeans'
 			for i in Ns:
@@ -416,15 +425,20 @@ def main():
 		# Using KNN
 		elif 'knn' in sys.argv:
 			alg = 'KNN'
-			predictions = KNN(papersToWordsToFrequencies)
-			print predictions
-			# TODO: Maybe Plot? right now there's only one output and it's that
-			# Madison wrote all the disputed papers
+			for i in Ns:
+				print i
+				bestWords = sampleForTopN(words, papersToWordsToFrequencies, i)[1]
+				#{author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords} for
+				 #		author, wordsToFreqs in authorsToWordsToFrequencies.items()}, bestWords)
+				papersToWordsToFrequencies = {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords}
+											  		for author, wordsToFreqs in papersToWordsToFrequencies.items()}
+				predictions.append(KNN(papersToWordsToFrequencies))
 
 		# Using Naive Bayes Net
 		elif 'nb' in sys.argv:
 			alg = 'Naive Bayes'
 			for i in Ns:
+				print i
 				bestWords = sampleForTopN(words, papersToWordsToFrequencies, i)[1]
 				predictions.append(NB(bestWords))
 			
