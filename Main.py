@@ -406,8 +406,8 @@ def main():
 	elif '-r' in sys.argv or '--run' in sys.argv:
 
 		# Using KMeans
+		predictions = []
 		if 'kmeans' in sys.argv:
-			predictions = []
 			for i in Ns:
 
 				authorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)[0]
@@ -419,9 +419,15 @@ def main():
 
 		# Using KNN
 		elif 'knn' in sys.argv:
-			predictions = []
+			for i in Ns:
+				bestWords = sampleForTopN(words, papersToWordsToFrequencies, i)[1]
+				#{author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords} for
+				 #		author, wordsToFreqs in authorsToWordsToFrequencies.items()}, bestWords)
+				papersToWordsToFrequencies = {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords}
+											  		for author, wordsToFreqs in papersToWordsToFrequencies}
+				predictions.append(KNN(papersToWordsToFrequencies))
 
-			predictions = KNN(papersToWordsToFrequencies)
+			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
 			print predictions
 			# TODO: Maybe Plot? right now there's only one output and it's that
 			# Madison wrote all the disputed papers
