@@ -79,7 +79,7 @@ def readData(fileName):
 
 
 # Returns a list of tuples containing the top n words and their relative frequency
-def topWords(n):
+def words(n):
 	wordFrequencies = {}
 
 	totalWords = 0
@@ -368,7 +368,7 @@ def main():
 		authorsToPaperNumbers['HAMILTON'].remove(i)
 		authorsToPaperNumbers['MADISON'].remove(i)
 
-	topNWords = topWords(n)
+	words = words()
 	papersToWordsToFrequencies = tf(range(1, len(papers)))
 
 	Ns = range(1, n)
@@ -377,7 +377,7 @@ def main():
 
 	# Output top words
 	if '-w' in sys.argv:
-		authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, n)[0]
+		authorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, n)[0]
 		tickLabels = authorsToSamples['HAMILTON'].keys()
 		data = []
 		data.append([v for k, v in authorsToSamples['HAMILTON'].items()])
@@ -397,7 +397,7 @@ def main():
 		if 'kmeans' in sys.argv:
 			error = []
 			for i in Ns:
-				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)[0]
+				authorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)[0]
 				error.append(kMeans(authorsToSamples, papersToWordsToFrequencies, False))
 			
 			plot('Training Error for Number of Words (No Joint)', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
@@ -410,7 +410,7 @@ def main():
 			predictions = []
 			for i in Ns:
 
-				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)[0]
+				authorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)[0]
 				predictions.append(kMeans(authorsToSamples, papersToWordsToFrequencies, True))
 
 			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
