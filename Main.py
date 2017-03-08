@@ -78,8 +78,8 @@ def readData(fileName):
 	authorsToPaperNumbers = {k: sorted(v) for k, v in authorsToPaperNumbers.items()}
 
 
-# Returns a list of tuples containing the top n words and their relative frequency
-def words(n):
+# Returns a list of tuples containing the words and their relative frequency
+def wordsFreqs():
 	wordFrequencies = {}
 
 	totalWords = 0
@@ -237,7 +237,7 @@ def KNNPredict(papersToWordsToFrequencies, num):
 	return predict(hDist, mDist, jDist)
 
 
-def flattenDictOfDicts(outerDct):
+def flattenDictOfDicts(outerDct, keys):
 	result = {}
 	
 	for paperNum, innerDct in outerDct.items():
@@ -245,20 +245,20 @@ def flattenDictOfDicts(outerDct):
 		for word, freq in innerDct.items():
 			result[word] = result.get(word, 0) + freq
 
-	result = {k : v / len(outerDct) for k, v in result.items()}
+	result = {k : v / len(outerDct) for k, v in result.items() if k in keys}
 
 	return result
 
 
-def NB():
+def NB(words):
 	totalPapers = 1 - len(papers)
 	priorH = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
 	priorM = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
 	priorJ = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
 
-	hWordFreqs = flattenDictOfDicts(tf(authorsToPaperNumbers['HAMILTON']))
-	mWordFreqs = flattenDictOfDicts(tf(authorsToPaperNumbers['MADISON']))
-	jWordFreqs = flattenDictOfDicts(tf(authorsToPaperNumbers['JAY']))
+	hWordFreqs = flattenDictOfDicts(tf(authorsToPaperNumbers['HAMILTON']), words)
+	mWordFreqs = flattenDictOfDicts(tf(authorsToPaperNumbers['MADISON']), words)
+	jWordFreqs = flattenDictOfDicts(tf(authorsToPaperNumbers['JAY']), words)
 
 	hMin = min(hWordFreqs.itervalues()) / 1.25
 	mMin = min(hWordFreqs.itervalues()) / 1.25
@@ -368,7 +368,7 @@ def main():
 		authorsToPaperNumbers['HAMILTON'].remove(i)
 		authorsToPaperNumbers['MADISON'].remove(i)
 
-	words = words()
+	words = wordsFreqs()
 	papersToWordsToFrequencies = tf(range(1, len(papers)))
 
 	Ns = range(1, n)
@@ -404,12 +404,12 @@ def main():
 
 	# Run classification
 	elif '-r' in sys.argv or '--run' in sys.argv:
+		predictions = []
 
 		# Using KMeans
 		predictions = []
 		if 'kmeans' in sys.argv:
 			for i in Ns:
-
 				authorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)[0]
 				predictions.append(kMeans(authorsToSamples, papersToWordsToFrequencies, True))
 
@@ -427,6 +427,7 @@ def main():
 											  		for author, wordsToFreqs in papersToWordsToFrequencies}
 				predictions.append(KNN(papersToWordsToFrequencies))
 
+			predictions = KNN(papersToWordsToFrequencies)
 			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
 			print predictions
 			# TODO: Maybe Plot? right now there's only one output and it's that
@@ -434,7 +435,12 @@ def main():
 
 		# Using Naive Bayes Net
 		elif 'nb' in sys.argv:
-			print NB()
+			for i in Ns:
+				bestWords = sampleForTopN(words, papersToWordsToFrequencies, i)[1]
+				predictions.append(NB(bestWords))
+
+			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
+			print predictions
 	
 
 if __name__ == '__main__':
