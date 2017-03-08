@@ -157,7 +157,7 @@ def sampleForTopN(words, papersToWordsToFrequencies, n):
 	minVal = sorted(wordsToDistanceFromAvg.items(), key=operator.itemgetter(1), reverse=True)[n][1]
 	bestWords = [k for k, v in wordsToDistanceFromAvg.items() if v > minVal]
 
-	return {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords} for author, wordsToFreqs in authorsToWordsToFrequencies.items()}
+	return ({author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords} for author, wordsToFreqs in authorsToWordsToFrequencies.items()}, bestWords)
 
 
 # Return the error on the training or test dataset based on the isTest flag
@@ -377,7 +377,7 @@ def main():
 
 	# Output top words
 	if '-w' in sys.argv:
-		authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, n)
+		authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, n)[0]
 		tickLabels = authorsToSamples['HAMILTON'].keys()
 		data = []
 		data.append([v for k, v in authorsToSamples['HAMILTON'].items()])
@@ -397,7 +397,7 @@ def main():
 		if 'kmeans' in sys.argv:
 			error = []
 			for i in Ns:
-				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)
+				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)[0]
 				error.append(kMeans(authorsToSamples, papersToWordsToFrequencies, False))
 			
 			plot('Training Error for Number of Words (No Joint)', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
@@ -410,7 +410,7 @@ def main():
 			predictions = []
 			for i in Ns:
 
-				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)
+				authorsToSamples = sampleForTopN(topNWords, papersToWordsToFrequencies, i)[0]
 				predictions.append(kMeans(authorsToSamples, papersToWordsToFrequencies, True))
 
 			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
@@ -426,10 +426,8 @@ def main():
 			# TODO: Maybe Plot? right now there's only one output and it's that
 			# Madison wrote all the disputed papers
 
-		# Using Navie Bayes Net
+		# Using Naive Bayes Net
 		elif 'nb' in sys.argv:
-
-			print 'NB'
 			print NB()
 	
 
