@@ -188,7 +188,7 @@ def kMeans(authorsToSamples, papersToWordsToFrequencies, isTest):
 				madison += 1
 			else:
 				jay += 1
-		elif paperNum not in authorsToPaperNumbers[predictedAuthor]:
+		elif paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED']:
 			if jayPresent or paperNum not in authorsToPaperNumbers['JAY']:
 				error += 1
 
@@ -214,24 +214,39 @@ def kMeansPredict(authorsToSamples, paperWordsToFreqs):
 
 
 # Simply assign each disputed paper to the author of the closest paper in the non disputed set
-def KNN(papersToWordsToFrequencies):
-	paperNums = authorsToPaperNumbers['DISPUTED']
+def KNN(papersToWordsToFrequencies, isTest):
+	paperNums = range(1, len(papers))
+	if isTest:
+		paperNums = authorsToPaperNumbers['DISPUTED']
+		hamilton = 0
+		madison = 0
+		jay = 0
 
 	hamilton = 0
 	madison = 0
 	jay = 0
 
+	error = 0.0
 	for paperNum in paperNums:
 		predictedAuthor = KNNPredict(papersToWordsToFrequencies, paperNum)
+		if isTest:
+			if predictedAuthor == 'HAMILTON':
+				hamilton += 1
+			elif predictedAuthor == 'MADISON':
+				madison += 1
+			else:
+				jay += 1
+		elif paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED']:
+			if jayPresent or paperNum not in authorsToPaperNumbers['JAY']:
+				error += 1
 
-		if predictedAuthor == 'HAMILTON':
-			hamilton += 1
-		elif predictedAuthor == 'MADISON':
-			madison += 1
+	if isTest:
+		return (hamilton, madison, jay)
+	else:
+		if jayPresent:
+			return error * 100 / (len(paperNums) - len(authorsToPaperNumbers['DISPUTED']))
 		else:
-			jay += 1
-
-	return (hamilton, madison, jay)
+			return error * 100 / (len(paperNums) - len(authorsToPaperNumbers['DISPUTED']) - len(authorsToPaperNumbers['JAY']))
 
 
 def KNNPredict(papersToWordsToFrequencies, num):
@@ -402,16 +417,21 @@ def main():
 
 	# Output training error
 	elif '-t' in sys.argv or '--train' in sys.argv:	
-		error = []
+		error = [[], [], []]
+		isTest = False
 		for i in Ns:
-			authorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)[0]
-			error.append(kMeans(authorsToSamples, papersToWordsToFrequencies, False))
+			authorsToSamples, bestWords, sortedAuthorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)
+			error[0].append(kMeans(authorsToSamples, papersToWordsToFrequencies, isTest))
+			papersToWordsToFrequencies = {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords}
+					for author, wordsToFreqs in papersToWordsToFrequencies.items()}
+			error[1].append(KNN(papersToWordsToFrequencies, isTest))
 		
 		plot('Training Error for Number of Words (No Joint)', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
 
 	# Run classification
 	elif '-r' in sys.argv or '--run' in sys.argv:
 		predictions = []
+		isTest = True
 		alg = ''
 
 		# Using KMeans
@@ -432,7 +452,7 @@ def main():
 				 #		author, wordsToFreqs in authorsToWordsToFrequencies.items()}, bestWords)
 				papersToWordsToFrequencies = {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords}
 											  		for author, wordsToFreqs in papersToWordsToFrequencies.items()}
-				predictions.append(KNN(papersToWordsToFrequencies))
+				predictions.append(KNN(papersToWordsToFrequencies, isTest))
 
 		# Using Naive Bayes Net
 		elif 'nb' in sys.argv:
