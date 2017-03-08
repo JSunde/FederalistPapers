@@ -286,7 +286,6 @@ def NB(words):
 
 		indexOfMax = probs.index(max(probs))
 
-		print probs
 		if indexOfMax == 0:
 			hamilton += 1
 		elif indexOfMax == 1:
@@ -405,19 +404,18 @@ def main():
 	# Run classification
 	elif '-r' in sys.argv or '--run' in sys.argv:
 		predictions = []
+		alg = ''
 
 		# Using KMeans
 		if 'kmeans' in sys.argv:
+			alg = 'Kmeans'
 			for i in Ns:
 				authorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)[0]
 				predictions.append(kMeans(authorsToSamples, papersToWordsToFrequencies, True))
 
-			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
-			print predictions
-			plot('Predictions for Disputed Papers (No Joint)', 'Number of Words in Sample', 'Number of Papers', Ns, predictions, seriesLabels)
-
 		# Using KNN
 		elif 'knn' in sys.argv:
+			alg = 'KNN'
 			predictions = KNN(papersToWordsToFrequencies)
 			print predictions
 			# TODO: Maybe Plot? right now there's only one output and it's that
@@ -425,12 +423,13 @@ def main():
 
 		# Using Naive Bayes Net
 		elif 'nb' in sys.argv:
+			alg = 'Naive Bayes'
 			for i in Ns:
 				bestWords = sampleForTopN(words, papersToWordsToFrequencies, i)[1]
 				predictions.append(NB(bestWords))
-
-			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
-			print predictions
+			
+		predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
+		plot('Predictions for Disputed Papers using %s' % (alg,), 'Number of Feature Words', 'Number of Papers', Ns, predictions, seriesLabels)
 	
 
 if __name__ == '__main__':
