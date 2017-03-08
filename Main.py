@@ -188,7 +188,7 @@ def kMeans(authorsToSamples, papersToWordsToFrequencies, isTest):
 				madison += 1
 			else:
 				jay += 1
-		elif paperNum not in authorsToPaperNumbers[predictedAuthor]:
+		elif paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED']:
 			if jayPresent or paperNum not in authorsToPaperNumbers['JAY']:
 				error += 1
 
@@ -257,8 +257,8 @@ def flattenDictOfDicts(outerDct, keys):
 	return result
 
 
-def NB(words):
-	totalPapers = 1 - len(papers)
+def NB(words, isTest):
+	totalPapers = 0
 	priorH = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
 	priorM = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
 	priorJ = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
@@ -272,13 +272,17 @@ def NB(words):
 	jMin = min(hWordFreqs.itervalues()) / 1.25
 
 	# TODO: run through disputed papers and use naive Bayes decision rule to decide author
-	disputedPaperNums = authorsToPaperNumbers['DISPUTED']
+	
+	paperNums = range(1, len(papers))
+	if isTest:
+		paperNums = authorsToPaperNumbers['DISPUTED']
 
 	hamilton = 0
 	madison = 0
 	jay = 0
+	error = 0.0
 
-	for paperNum in disputedPaperNums:
+	for paperNum in paperNums:
 		paper = papers[paperNum]
 		probs = [0, 0, 0]
 
@@ -287,20 +291,34 @@ def NB(words):
 			for word in line.split(' '):
 				word = word.lower()
 
-				probs[0] += math.log(hWordFreqs.get(word, hMin))
-				probs[1] += math.log(mWordFreqs.get(word, mMin))
-				probs[2] += math.log(jWordFreqs.get(word, jMin))
+				probs[0] += math.log(hWordFreqs.get(word, hMin) * priorH)
+				probs[1] += math.log(mWordFreqs.get(word, mMin) * priorM)
+				probs[2] += math.log(jWordFreqs.get(word, jMin) * priorM)
 
 		indexOfMax = probs.index(max(probs))
 
+		predictedAuthor = ''
 		if indexOfMax == 0:
 			hamilton += 1
+			predictedAuthor = 'HAMILTON'
 		elif indexOfMax == 1:
+			predictedAuthor = 'MADISON'
 			madison += 1
 		else:
+			predictedAuthor = 'JAY'
 			jay += 1
 
-	return (hamilton, madison, jay)
+		if not isTest and paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED']:
+			if jayPresent or paperNum not in authorsToPaperNumbers['JAY']:
+				error += 1
+
+	if isTest:
+		return (hamilton, madison, jay)
+	else:
+		if jayPresent:
+			return error * 100 / (len(paperNums) - len(authorsToPaperNumbers['DISPUTED']))
+		else:
+			return error * 100 / (len(paperNums) - len(authorsToPaperNumbers['DISPUTED']) - len(authorsToPaperNumbers['JAY']))
 
 
 # Return the name of the author with the smallest dist
@@ -350,7 +368,8 @@ def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=N
 	else:
 		plt.ylim(0, 50)
 
-		plt.plot(x, y)
+		for i in range(len(y)):
+			plt.plot(x, y[i])
 
 	plt.savefig('%s.png' % title, format='png')
 	plt.show()
