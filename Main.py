@@ -9,6 +9,8 @@ import matplotlib.patches as mpatches
 import string, math, operator, sys, numpy
 
 colors = ['pink', 'lightblue', 'thistle']
+markers = ['o', 's', 'D']
+linestyles = ['-', '--', ':']
 
 # Stores the content of the papers
 papers = ['']
@@ -188,7 +190,7 @@ def kMeans(authorsToSamples, papersToWordsToFrequencies, isTest):
 				madison += 1
 			else:
 				jay += 1
-		elif paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED']:
+		elif paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED'] and paperNum not in [18, 19, 20]:
 			if jayPresent or paperNum not in authorsToPaperNumbers['JAY']:
 				error += 1
 
@@ -236,7 +238,7 @@ def KNN(papersToWordsToFrequencies, isTest):
 				madison += 1
 			else:
 				jay += 1
-		elif paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED']:
+		elif paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED'] and paperNum not in [18, 19, 20]:
 			if jayPresent or paperNum not in authorsToPaperNumbers['JAY']:
 				error += 1
 
@@ -273,7 +275,7 @@ def flattenDictOfDicts(outerDct, keys):
 
 
 def NB(words, isTest):
-	totalPapers = 0
+	totalPapers = len(papers) - 1
 	priorH = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
 	priorM = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
 	priorJ = float(len(authorsToPaperNumbers['HAMILTON'])) / totalPapers
@@ -323,7 +325,7 @@ def NB(words, isTest):
 			predictedAuthor = 'JAY'
 			jay += 1
 
-		if not isTest and paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED']:
+		if not isTest and paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED'] and paperNum not in [18, 19, 20]:
 			if jayPresent or paperNum not in authorsToPaperNumbers['JAY']:
 				error += 1
 
@@ -358,15 +360,14 @@ def computeDist(d1, d2):
 	return math.sqrt(dist)
 
 
-def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=None):
+def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=None, alg=''):
 	fig = plt.figure()
 
 	plt.title(title)
 	plt.xlabel(xLabel)
 	plt.ylabel(yLabel)
-	
 
-	if bar:
+	if bar:	
 		width = 0.3	
 
 		for i in range(len(seriesLabels)):
@@ -375,16 +376,25 @@ def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=N
 		plt.xticks(x + width / 2, tickLabels, rotation=45)
 		plt.legend(borderaxespad=1, fontsize=12)
 	elif seriesLabels:
+		patches = []
 		for i in range(len(seriesLabels)):
-			plt.plot(x, y[i], label=seriesLabels[i])
+			plt.plot(x, y[i], label=seriesLabels[i], color=colors[i])
+			patches.append(mpatches.Patch(color=colors[i], label=seriesLabels[i]))
 	
-		plt.legend(borderaxespad=1, fontsize=12)
+		plt.legend(borderaxespad=1, loc=5, fontsize=12, handles=patches)
 		plt.ylim(0, 12.5)
 	else:
-		plt.ylim(0, 50)
+		labels = ['KMeans', 'KNN', 'Naive Bayes']
 
+		patches = []
 		for i in range(len(y)):
-			plt.plot(x, y[i])
+			patches.append(mpatches.Patch(color=colors[i % len(y)], label=labels[i]))
+
+		plt.legend(borderaxespad=1, handles=patches)
+
+		plt.ylim(0, 25)
+		for i in range(len(y)):
+			plt.plot(x, y[i], color=colors[i % len(y)], linestyle=linestyles[i % len(y)])
 
 	plt.savefig('%s.png' % title, format='png')
 	plt.show()
@@ -441,11 +451,12 @@ def main():
 		for i in Ns:
 			authorsToSamples, bestWords, sortedAuthorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)
 			error[0].append(kMeans(authorsToSamples, papersToWordsToFrequencies, isTest))
-			papersToWordsToFrequencies = {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords}
-					for author, wordsToFreqs in papersToWordsToFrequencies.items()}
-			error[1].append(KNN(papersToWordsToFrequencies, isTest))
+			knnPapersToWordsToFrequencies = {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords}
+			 		for author, wordsToFreqs in papersToWordsToFrequencies.items()}
+			error[1].append(KNN(knnPapersToWordsToFrequencies, isTest))
+			error[2].append(NB(bestWords, isTest))
 		
-		plot('Training Error for Number of Words (No Joint)', 'Number of Words in Sample', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
+		plot('Training Error as a Function of Number of Feature Words', 'Number of Feature Words', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
 
 	# Run classification
 	elif '-r' in sys.argv or '--run' in sys.argv:
@@ -479,11 +490,14 @@ def main():
 			for i in Ns:
 				print i
 				bestWords = sampleForTopN(words, papersToWordsToFrequencies, i)[1]
-				predictions.append(NB(bestWords))
+				predictions.append(NB(bestWords, isTest))
 			
-		predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
-		plot('Predictions for Disputed Papers using %s' % (alg,), 'Number of Feature Words', 'Number of Papers', Ns, predictions, seriesLabels)
-	
+		if jayPresent:
+			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
+			plot('Predictions for Disputed Papers', 'Number of Feature Words', 'Number of Papers', Ns, predictions, seriesLabels)
+		else:
+			predictions = [[x[0] for x in predictions], [x[1] for x in predictions]]
+			plot('Predictions for Disputed Papers using %s' % alg, 'Number of Feature Words', 'Number of Papers', Ns, predictions, seriesLabels[:-1], alg=alg)	
 
 if __name__ == '__main__':
     main()
