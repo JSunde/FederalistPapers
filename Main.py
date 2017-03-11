@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import string, math, operator, sys, numpy
 
-colors = ['pink', 'lightblue', 'thistle']
-markers = ['o', 's', 'D']
-linestyles = ['-', '--', ':']
+colors = ['pink', 'lightblue', 'thistle', 'lightgreen', 'paleturquoise']
+markers = ['o', 's', 'D', '^']
+linestyles = ['-', '--', ':', '-.']
 
 # Stores the content of the papers
 papers = ['']
@@ -216,7 +216,7 @@ def kMeansPredict(authorsToSamples, paperWordsToFreqs):
 
 
 # Simply assign each disputed paper to the author of the closest paper in the non disputed set
-def KNN(papersToWordsToFrequencies, isTest):
+def KNN(papersToWordsToFrequencies, k, isTest, isValidation=False):
 	paperNums = range(1, len(papers))
 	if isTest:
 		paperNums = authorsToPaperNumbers['DISPUTED']
@@ -229,9 +229,18 @@ def KNN(papersToWordsToFrequencies, isTest):
 	jay = 0
 
 	error = 0.0
+	if isValidation:
+		hLen = len(authorsToPaperNumbers['HAMILTON'])
+		mLen = len(authorsToPaperNumbers['MADISON'])
+		jLen = len(authorsToPaperNumbers['JAY'])
+
+		paperNums = []
+		paperNums += authorsToPaperNumbers['HAMILTON'][-(hLen / 4):]
+		paperNums += authorsToPaperNumbers['MADISON'][-(mLen / 4):]
+
 	for paperNum in paperNums:
-		predictedAuthor = KNNPredict(papersToWordsToFrequencies, paperNum)
-		if isTest:
+		predictedAuthor = KNNPredict(papersToWordsToFrequencies, paperNum, k, isValidation)
+		if isTest and not isValidation:
 			if predictedAuthor == 'HAMILTON':
 				hamilton += 1
 			elif predictedAuthor == 'MADISON':
@@ -240,8 +249,11 @@ def KNN(papersToWordsToFrequencies, isTest):
 				jay += 1
 		elif paperNum not in authorsToPaperNumbers[predictedAuthor] and paperNum not in authorsToPaperNumbers['DISPUTED'] and paperNum not in [18, 19, 20]:
 			if jayPresent or paperNum not in authorsToPaperNumbers['JAY']:
+				print '%s %d' % (predictedAuthor, paperNum)
 				error += 1
 
+	if isValidation:
+		return error * 100 / (len(paperNums))
 	if isTest:
 		return (hamilton, madison, jay)
 	else:
@@ -251,14 +263,50 @@ def KNN(papersToWordsToFrequencies, isTest):
 			return error * 100 / (len(paperNums) - len(authorsToPaperNumbers['DISPUTED']) - len(authorsToPaperNumbers['JAY']))
 
 
-def KNNPredict(papersToWordsToFrequencies, num):
-	# TODO: implement
+def KNNPredict(papersToWordsToFrequencies, num, k, isValidation=False):
 	paper = papersToWordsToFrequencies[num]
-	hDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['HAMILTON']])
-	mDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['MADISON']])
-	jDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['JAY']])
+	# hDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['HAMILTON']])
+	# mDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['MADISON']])
+	# jDist = min([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['JAY']])
+	
+	hLen = len(authorsToPaperNumbers['HAMILTON'])
+	mLen = len(authorsToPaperNumbers['MADISON'])
+	jLen = len(authorsToPaperNumbers['JAY'])
 
-	return predict(hDist, mDist, jDist)
+	if isValidation:
+		hDists = sorted([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['HAMILTON'][:-(hLen / 4)]])
+		mDists = sorted([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['MADISON'][:-(mLen / 4)]])
+		
+		if jayPresent:
+			jDists = sorted([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['JAY'][:-(jLen / 4)]])
+	else:
+		hDists = sorted([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['HAMILTON']])
+		mDists = sorted([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['MADISON']])
+		
+		if jayPresent:
+			jDists = sorted([computeDist(papersToWordsToFrequencies[paperNum], paper) for paperNum in authorsToPaperNumbers['JAY']])
+
+	hVotes = 0
+	mVotes = 0
+	jVotes = 0
+
+	for i in range(k):
+		if jayPresent:
+			minDist = min(hDists[0], mDists[0], jDists[0])
+		else:
+			minDist = min(hDists[0], mDists[0])
+
+		if hDists[0] == minDist:
+			hDists.pop(0)
+			hVotes += 1
+		elif mDists[0] == minDist:
+			mDists.pop(0)
+			mVotes += 1
+		else:
+			jDists.pop(0)
+			jVotes += 1
+
+	return predict(0 - hVotes, 0 - mVotes, 0 - jVotes)
 
 
 def flattenDictOfDicts(outerDct, keys):
@@ -270,7 +318,6 @@ def flattenDictOfDicts(outerDct, keys):
 			result[word] = result.get(word, 0) + freq
 
 	result = {k : v / len(outerDct) for k, v in result.items() if k in keys}
-
 	return result
 
 
@@ -287,8 +334,6 @@ def NB(words, isTest):
 	hMin = min(hWordFreqs.itervalues()) / 1.25
 	mMin = min(hWordFreqs.itervalues()) / 1.25
 	jMin = min(hWordFreqs.itervalues()) / 1.25
-
-	# TODO: run through disputed papers and use naive Bayes decision rule to decide author
 	
 	paperNums = range(1, len(papers))
 	if isTest:
@@ -360,7 +405,7 @@ def computeDist(d1, d2):
 	return math.sqrt(dist)
 
 
-def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=None, alg=''):
+def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=None, alg='', isTest=False, isValidation=False):
 	fig = plt.figure()
 
 	plt.title(title)
@@ -375,7 +420,7 @@ def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=N
 
 		plt.xticks(x + width / 2, tickLabels, rotation=45)
 		plt.legend(borderaxespad=1, fontsize=12)
-	elif seriesLabels:
+	elif isTest:
 		patches = []
 		for i in range(len(seriesLabels)):
 			plt.plot(x, y[i], label=seriesLabels[i], color=colors[i])
@@ -383,6 +428,16 @@ def plot(title, xLabel, yLabel, x, y, seriesLabels=None, bar=False, tickLabels=N
 	
 		plt.legend(borderaxespad=1, loc=5, fontsize=12, handles=patches)
 		plt.ylim(0, 12.5)
+	elif isValidation:
+		patches = []
+		for i in range(len(y)):
+			patches.append(mpatches.Patch(color=colors[i % len(colors)], label=seriesLabels[i]))
+
+		plt.legend(borderaxespad=1, handles=patches)
+
+		plt.ylim(0, 15)
+		for i in range(len(y)):
+			plt.plot(x, y[i], color=colors[i % len(colors)], linestyle=linestyles[i % len(linestyles)])
 	else:
 		labels = ['KMeans', 'KNN', 'Naive Bayes']
 
@@ -412,6 +467,10 @@ def main():
 	if '-j' in sys.argv:
 		global jayPresent
 		jayPresent = True
+
+	kForKNN = 1
+	if '-k' in sys.argv:
+		kForKNN = int(sys.argv[sys.argv.index('-k') + 1])
 
 	# Remove joint papers from both Hamilton and Madison paper lists
 	for i in range(18, 21):
@@ -453,10 +512,30 @@ def main():
 			error[0].append(kMeans(authorsToSamples, papersToWordsToFrequencies, isTest))
 			knnPapersToWordsToFrequencies = {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords}
 			 		for author, wordsToFreqs in papersToWordsToFrequencies.items()}
-			error[1].append(KNN(knnPapersToWordsToFrequencies, isTest))
+			error[1].append(KNN(knnPapersToWordsToFrequencies, kForKNN, isTest))
 			error[2].append(NB(bestWords, isTest))
 		
 		plot('Training Error as a Function of Number of Feature Words', 'Number of Feature Words', 'Training Error: Incorrect Author Predictions (%)', Ns, error)
+
+	elif '-v' in sys.argv:
+		Ks = range(1, int(sys.argv[sys.argv.index('-v') + 1]), 2)
+
+		error = [[] for i in Ks]
+
+		isTest = False
+		isValidation = True
+		for kIndex in range(len(Ks)):
+			print 'k=%d' % Ks[kIndex]
+			for i in Ns:
+				print '\ti=%d' % i
+				authorsToSamples, bestWords, sortedAuthorsToSamples = sampleForTopN(words, papersToWordsToFrequencies, i)
+
+				knnPapersToWordsToFrequencies = {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords}
+							 		for author, wordsToFreqs in papersToWordsToFrequencies.items()}
+				error[kIndex].append(KNN(knnPapersToWordsToFrequencies, Ks[kIndex], isTest, isValidation))
+
+		plot('Validation Error as a Function of Number of Feature Words', 'Number of Feature Words', 'Validation Error: Incorrect Author Predictions (%)', Ns, error, seriesLabels=Ks, isValidation=True)
+
 
 	# Run classification
 	elif '-r' in sys.argv or '--run' in sys.argv:
@@ -482,7 +561,7 @@ def main():
 				 #		author, wordsToFreqs in authorsToWordsToFrequencies.items()}, bestWords)
 				papersToWordsToFrequencies = {author: {word: freq for word, freq in wordsToFreqs.items() if word in bestWords}
 											  		for author, wordsToFreqs in papersToWordsToFrequencies.items()}
-				predictions.append(KNN(papersToWordsToFrequencies, isTest))
+				predictions.append(KNN(papersToWordsToFrequencies, kForKNN, isTest))
 
 		# Using Naive Bayes Net
 		elif 'nb' in sys.argv:
@@ -494,10 +573,10 @@ def main():
 			
 		if jayPresent:
 			predictions = [[x[0] for x in predictions], [x[1] for x in predictions], [x[2] for x in predictions]]
-			plot('Predictions for Disputed Papers', 'Number of Feature Words', 'Number of Papers', Ns, predictions, seriesLabels)
+			plot('Predictions for Disputed Papers', 'Number of Feature Words', 'Number of Papers', Ns, predictions, seriesLabels=seriesLabels, isTest=isTest)
 		else:
 			predictions = [[x[0] for x in predictions], [x[1] for x in predictions]]
-			plot('Predictions for Disputed Papers using %s' % alg, 'Number of Feature Words', 'Number of Papers', Ns, predictions, seriesLabels[:-1], alg=alg)	
+			plot('Predictions for Disputed Papers using %s' % alg, 'Number of Feature Words', 'Number of Papers', Ns, predictions, seriesLabels=seriesLabels[:-1], isTest=isTest, alg=alg)	
 
 if __name__ == '__main__':
     main()
